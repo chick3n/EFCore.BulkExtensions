@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 
 namespace EFCore.BulkExtensions
 {
@@ -54,12 +55,43 @@ namespace EFCore.BulkExtensions
             var conn = context.Database.GetDbConnection();
             try
             {
-                conn.OpenAsync();
+                conn.Open();
                 using (var command = conn.CreateCommand())
                 {
                     string query = SqlQueryBuilder.SelectIsIdentity(FullTableName, PrimaryKey);
                     command.CommandText = query;
                     DbDataReader reader = command.ExecuteReader();
+
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            hasIdentity = (int)reader[0];
+                        }
+                    }
+                    reader.Dispose();
+                }
+            }
+            finally
+            {
+                conn.Close();
+            }
+
+            HasIdentity = hasIdentity == 1;
+        }
+
+        public async Task CheckHasIdentityAsync(DbContext context)
+        {
+            int hasIdentity = 0;
+            var conn = context.Database.GetDbConnection();
+            try
+            {
+                await conn.OpenAsync();
+                using (var command = conn.CreateCommand())
+                {
+                    string query = SqlQueryBuilder.SelectIsIdentity(FullTableName, PrimaryKey);
+                    command.CommandText = query;
+                    DbDataReader reader = await command.ExecuteReaderAsync();
 
                     if (reader.HasRows)
                     {
